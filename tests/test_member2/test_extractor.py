@@ -21,6 +21,7 @@ from member2_intelligence.intelligence.extractor import (
     _clean_json_response,
     _parse_llm_response,
     _convert_to_meeting_intelligence,
+    _build_prompt,
 )
 from member2_intelligence.intelligence.schemas import (
     MeetingIntelligence,
@@ -145,6 +146,39 @@ def _mock_generate_null_owner_deadline(**kwargs):
     })
 
 
+# Multi-item response fixture with multiple items across EVERY category
+_MULTI_ITEM_PER_CATEGORY_RESPONSE = json.dumps({
+    "claims": [
+        {"id": "c1", "text": "The Q3 budget has been approved by the board."},
+        {"id": "c2", "text": "Two engineers need to be hired before Friday."},
+        {"id": "c3", "text": "The release candidate is scheduled for next Wednesday."},
+    ],
+    "decisions": [
+        {"id": "d1", "text": "The board approved the Q3 budget allocation."},
+        {"id": "d2", "text": "Deploy the new release candidate next Wednesday."},
+    ],
+    "action_items": [
+        {"id": "a1", "task": "Hire two engineers", "owner": "SPEAKER_01", "deadline": "Friday"},
+        {"id": "a2", "task": "Review budget allocation", "owner": None, "deadline": None},
+        {"id": "a3", "task": "Prepare deployment checklist", "owner": "SPEAKER_02", "deadline": "Wednesday"},
+    ],
+    "topics": [
+        {"id": "t1", "name": "Q3 Budget"},
+        {"id": "t2", "name": "Hiring"},
+        {"id": "t3", "name": "Deployment Schedule"},
+    ],
+    "contradictions": [
+        {"id": "x1", "description": "SPEAKER_00 says budget was approved; SPEAKER_02 disagrees."},
+        {"id": "x2", "description": "Conflicting deadlines mentioned for hiring engineers."},
+    ],
+})
+
+
+def _mock_generate_multiple_items(**kwargs):
+    """Mock generate function returning multiple items in all categories."""
+    return _MULTI_ITEM_PER_CATEGORY_RESPONSE
+
+
 # -- Tests: Valid Extraction ------------------------------------------------
 
 def test_valid_qwen_json_extraction():
@@ -212,6 +246,69 @@ def test_contradictions_conversion():
     assert result.contradictions[0].id == "x1"
     assert "disagrees" in result.contradictions[0].description
     print("  PASS: contradictions converted correctly")
+
+
+def test_multiple_items_conversion_all_categories():
+    """All categories with multiple items must be converted without truncation."""
+    transcript = _make_transcript()
+    result = extract_intelligence(transcript, generate_fn=_mock_generate_multiple_items)
+
+    assert isinstance(result, MeetingIntelligence)
+    # Check counts
+    assert len(result.claims) == 3, f"Expected 3 claims, got {len(result.claims)}"
+    assert len(result.decisions) == 2, f"Expected 2 decisions, got {len(result.decisions)}"
+    assert len(result.action_items) == 3, f"Expected 3 action items, got {len(result.action_items)}"
+    assert len(result.topics) == 3, f"Expected 3 topics, got {len(result.topics)}"
+    assert len(result.contradictions) == 2, f"Expected 2 contradictions, got {len(result.contradictions)}"
+
+    # Check distinct IDs and content
+    assert [c.id for c in result.claims] == ["c1", "c2", "c3"]
+    assert [d.id for d in result.decisions] == ["d1", "d2"]
+    assert [a.id for a in result.action_items] == ["a1", "a2", "a3"]
+    assert [t.id for t in result.topics] == ["t1", "t2", "t3"]
+    assert [x.id for x in result.contradictions] == ["x1", "x2"]
+
+    # Check action item owners and deadlines
+    assert result.action_items[0].owner == "SPEAKER_01"
+    assert result.action_items[0].deadline == "Friday"
+    assert result.action_items[1].owner is None
+    assert result.action_items[1].deadline is None
+    assert result.action_items[2].owner == "SPEAKER_02"
+    assert result.action_items[2].deadline == "Wednesday"
+
+    # Evidence lists must be empty for all extracted items
+    for c in result.claims:
+        assert c.evidence == []
+    for d in result.decisions:
+        assert d.evidence == []
+    for a in result.action_items:
+        assert a.evidence == []
+    for t in result.topics:
+        assert t.evidence == []
+    for x in result.contradictions:
+        assert x.evidence == []
+
+    print("  PASS: multiple items in all categories converted into MeetingIntelligence")
+
+
+def test_extraction_prompt_explicitly_instructs_multiple_items():
+    """The extraction prompt must explicitly instruct extracting all items and use multi-entry arrays."""
+    transcript = _make_transcript()
+    prompt = _build_prompt(transcript)
+
+    # Must contain instruction for exhaustive extraction
+    assert "Extract ALL distinct claims, decisions, action items, topics, and contradictions" in prompt
+    assert "Do NOT limit any category to a single item" in prompt
+    assert "Never limit any category to one item" in prompt
+    assert "Use multiple array entries whenever multiple items of that category exist" in prompt
+
+    # Prompt schema template must illustrate multi-item arrays
+    assert '"c1"' in prompt and '"c2"' in prompt
+    assert '"d1"' in prompt and '"d2"' in prompt
+    assert '"a1"' in prompt and '"a2"' in prompt
+    assert '"t1"' in prompt and '"t2"' in prompt
+    assert '"x1"' in prompt and '"x2"' in prompt
+    print("  PASS: extraction prompt explicitly instructs multiple items")
 
 
 # -- Tests: Evidence Must Be Empty -----------------------------------------
@@ -353,6 +450,8 @@ if __name__ == "__main__":
     test_action_items_conversion()
     test_topics_conversion()
     test_contradictions_conversion()
+    test_multiple_items_conversion_all_categories()
+    test_extraction_prompt_explicitly_instructs_multiple_items()
 
     print("\n--- Evidence Safety ---")
     test_no_fabricated_evidence()

@@ -1,0 +1,13 @@
+cd "C:\Users\Hp\Downloads\FYP"
+
+.\.venv\Scripts\Activate.ps1
+
+$env:Path += ";C:\Users\Hp\Downloads\ffmpeg-9.0.2-full_build-shared\ffmpeg-9.0.2-full_build-shared\bin"
+
+$env:Path += ";$env:LOCALAPPDATA\Programs\Ollama"
+
+ffmpeg -version
+ollama --version
+ollama list
+
+streamlit run app/app.py

@@ -274,3 +274,58 @@ def verify_claim(claim: Claim, transcript: Dict[str, Any]) -> VerificationResult
         verified_evidence=verified,
         score=best_score,
     )
+
+
+# ---------------------------------------------------------------------------
+# General item verification
+# ---------------------------------------------------------------------------
+
+def verify_item(item: Any, transcript: Dict[str, Any]) -> VerificationResult:
+    """
+    Verifies any intelligence item (Claim, Decision, ActionItem, Topic,
+    or Contradiction) against the transcript using deterministic structural
+    and lexical evidence verification.
+
+    Score semantics:
+      - score is a float in [0.0, 1.0], measuring direct textual grounding
+        (lexical overlap ratio between the item's query tokens and the evidence).
+      - score is NOT a statistical probability of factual truth, and MUST NOT
+        be confused with model confidence.
+      - Status classification:
+          score >= THRESHOLD_SUPPORTED (0.50) -> "SUPPORTED"
+          score >= THRESHOLD_PARTIAL   (0.20) -> "PARTIALLY_SUPPORTED"
+          score <  THRESHOLD_PARTIAL   (0.20) -> "UNSUPPORTED"
+
+    Args:
+        item:       An intelligence item (Claim, Decision, ActionItem, Topic, Contradiction).
+        transcript: The structured transcript dictionary.
+
+    Returns:
+        A VerificationResult with status, reason, verified_evidence, and score.
+    """
+    if isinstance(item, Claim):
+        text = item.text
+        evidence = item.evidence
+    elif hasattr(item, "text"):
+        text = getattr(item, "text")
+        evidence = getattr(item, "evidence", [])
+    elif hasattr(item, "task"):
+        text = getattr(item, "task")
+        evidence = getattr(item, "evidence", [])
+    elif hasattr(item, "name"):
+        text = getattr(item, "name")
+        evidence = getattr(item, "evidence", [])
+    elif hasattr(item, "description"):
+        text = getattr(item, "description")
+        evidence = getattr(item, "evidence", [])
+    else:
+        text = str(item)
+        evidence = getattr(item, "evidence", [])
+
+    temp_claim = Claim(
+        id=str(getattr(item, "id", "item")),
+        text=text,
+        evidence=evidence,
+    )
+    return verify_claim(temp_claim, transcript)
+

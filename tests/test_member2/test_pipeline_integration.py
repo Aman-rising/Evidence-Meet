@@ -105,9 +105,187 @@ def test_pipeline_produces_intelligence():
         generate_fn=_mock_generate_valid,
     )
     assert "intelligence" in result
+    assert "verified_intelligence" in result
     assert isinstance(result["intelligence"], MeetingIntelligence)
+    assert isinstance(result["verified_intelligence"], MeetingIntelligence)
+    assert result["verified_intelligence"] is result["intelligence"]
     assert result["intelligence_error"] is None
     print("  PASS: pipeline produces MeetingIntelligence")
+
+
+def test_pipeline_returns_both_summary_and_verified_intelligence():
+    """Pipeline must return both the baseline BART summary and verified intelligence."""
+    aligned = _make_aligned_transcript()
+    result = run_intelligence_pipeline(
+        aligned, "en", "test_meeting.wav",
+        generate_fn=_mock_generate_valid,
+    )
+    # Check baseline summary
+    assert "summary" in result
+    assert isinstance(result["summary"], str)
+    assert len(result["summary"]) > 0
+
+    # Check verified intelligence
+    assert "verified_intelligence" in result
+    intel = result["verified_intelligence"]
+    assert isinstance(intel, MeetingIntelligence)
+    assert len(intel.claims) > 0
+    assert len(intel.claims[0].evidence) > 0
+
+    # raw_text must remain unchanged
+    for seg in result["transcript"]["segments"]:
+        assert "raw_text" in seg
+        assert len(seg["raw_text"]) > 0
+    print("  PASS: pipeline returns both BART baseline summary and verified intelligence")
+
+
+def test_backend_e2e_run_intelligence_pipeline():
+    """
+    Backend end-to-end integration test for run_intelligence_pipeline().
+
+    Verifies the full Member 2 execution path:
+        aligned transcript
+                ↓
+        build_structured_transcript()
+                ↓
+        preprocess_transcript()
+                ↓
+        BART baseline summary (mocked for determinism/speed)
+                ↓
+        extract_verified_intelligence() (mocked Qwen)
+                ↓
+        return {transcript, cleaned_text, summary, verified_intelligence}
+
+    Validates:
+    - Result contains: transcript, cleaned_text, summary, verified_intelligence
+    - Verified intelligence has claims, decisions, action items with transcript evidence
+    - raw_text is preserved as evidence quote and matches source segments exactly
+    - Preprocessed transcript preserves segment raw_text and structure
+    """
+    # 1. Small realistic structured transcript fixture
+    aligned = [
+        {
+            "speaker": "SPEAKER_00",
+            "start": 0.0,
+            "end": 5.2,
+            "text": "The budget for the AI project has been finalized at one hundred thousand dollars.",
+        },
+        {
+            "speaker": "SPEAKER_01",
+            "start": 5.8,
+            "end": 11.4,
+            "text": "I will prepare the sprint plan and assign development tasks by Monday.",
+        },
+        {
+            "speaker": "SPEAKER_02",
+            "start": 12.0,
+            "end": 17.5,
+            "text": "We agreed to deploy the new release candidate next Wednesday.",
+        },
+    ]
+
+    # 2. Mock Qwen output with claim, decision, and action item
+    mock_qwen_json = json.dumps({
+        "claims": [
+            {"id": "c1", "text": "The budget for the AI project has been finalized at one hundred thousand dollars."}
+        ],
+        "decisions": [
+            {"id": "d1", "text": "We agreed to deploy the new release candidate next Wednesday."}
+        ],
+        "action_items": [
+            {"id": "a1", "task": "Prepare the sprint plan and assign development tasks by Monday", "owner": "SPEAKER_01", "deadline": "Monday"}
+        ],
+        "topics": [
+            {"id": "t1", "name": "AI project budget"}
+        ],
+        "contradictions": [],
+    })
+
+    def mock_generate(**kwargs):
+        return mock_qwen_json
+
+    # 3. Mock BART summarizer for fast, deterministic execution
+    expected_summary = "The AI project budget was set at $100k, sprint tasks are due Monday, and release is Wednesday."
+
+    def mock_summarize(text: str) -> str:
+        return expected_summary
+
+    # Execute the full pipeline
+    result = run_intelligence_pipeline(
+        aligned_transcript=aligned,
+        language="en",
+        audio_filename="meeting_sync_2026.wav",
+        generate_fn=mock_generate,
+        summarize_fn=mock_summarize,
+    )
+
+    # 4. Verify returned keys
+    assert "transcript" in result, "Result must contain 'transcript'"
+    assert "cleaned_text" in result, "Result must contain 'cleaned_text'"
+    assert "summary" in result, "Result must contain 'summary'"
+    assert "verified_intelligence" in result, "Result must contain 'verified_intelligence'"
+    assert "intelligence" in result, "Result must contain 'intelligence' for compatibility"
+    assert result["verified_intelligence"] is result["intelligence"]
+
+    # Verify summary is returned
+    assert result["summary"] == expected_summary
+
+    # Verify cleaned_text is non-empty string
+    assert isinstance(result["cleaned_text"], str)
+    assert len(result["cleaned_text"]) > 0
+
+    # Verify transcript structure and raw_text integrity
+    transcript = result["transcript"]
+    assert transcript["meeting_id"] == "meeting_sync_2026"
+    assert transcript["language"] == "en"
+    assert len(transcript["segments"]) == 3
+    for idx, seg in enumerate(transcript["segments"]):
+        assert seg["id"] == idx + 1
+        assert seg["speaker"] == aligned[idx]["speaker"]
+        assert seg["start"] == aligned[idx]["start"]
+        assert seg["end"] == aligned[idx]["end"]
+        # raw_text MUST match the original alignment text
+        assert seg["raw_text"] == aligned[idx]["text"]
+
+    # 5. Verify verified_intelligence contains verified items with transcript evidence
+    intel = result["verified_intelligence"]
+    assert isinstance(intel, MeetingIntelligence)
+
+    # Check Claim
+    assert len(intel.claims) == 1
+    claim = intel.claims[0]
+    assert claim.id == "c1"
+    assert len(claim.evidence) >= 1
+    ev_claim = claim.evidence[0]
+    assert ev_claim.segment_id == 1
+    assert ev_claim.speaker == "SPEAKER_00"
+    # 6. Verify raw_text is preserved as the evidence quote
+    assert ev_claim.quote == aligned[0]["text"]
+    assert ev_claim.quote == transcript["segments"][0]["raw_text"]
+
+    # Check Decision
+    assert len(intel.decisions) == 1
+    decision = intel.decisions[0]
+    assert decision.id == "d1"
+    assert len(decision.evidence) >= 1
+    ev_dec = decision.evidence[0]
+    assert ev_dec.segment_id == 3
+    assert ev_dec.speaker == "SPEAKER_02"
+    assert ev_dec.quote == aligned[2]["text"]
+
+    # Check ActionItem
+    assert len(intel.action_items) == 1
+    action = intel.action_items[0]
+    assert action.id == "a1"
+    assert action.owner == "SPEAKER_01"
+    assert action.deadline == "Monday"
+    assert len(action.evidence) >= 1
+    ev_act = action.evidence[0]
+    assert ev_act.segment_id == 2
+    assert ev_act.speaker == "SPEAKER_01"
+    assert ev_act.quote == aligned[1]["text"]
+
+    print("  PASS: backend end-to-end run_intelligence_pipeline succeeded with verified intelligence")
 
 
 def test_pipeline_preserves_existing_outputs():
@@ -370,6 +548,8 @@ if __name__ == "__main__":
 
     print("\n--- Full Pipeline ---")
     test_pipeline_produces_intelligence()
+    test_pipeline_returns_both_summary_and_verified_intelligence()
+    test_backend_e2e_run_intelligence_pipeline()
     test_pipeline_preserves_existing_outputs()
     test_qwen_extraction_occurs()
     test_evidence_retrieval_occurs()

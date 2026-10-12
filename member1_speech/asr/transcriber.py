@@ -1,13 +1,5 @@
 import os
-# --- CPU OPTIMIZATION FOR INTEL i5 ---
-# Restrict threads to prevent contention on Efficient cores
-os.environ["OMP_NUM_THREADS"] = "4"
-os.environ["MKL_NUM_THREADS"] = "4"
-
 import torch
-# Restrict PyTorch threads
-torch.set_num_threads(4)
-
 from faster_whisper import WhisperModel
 import time
 
@@ -15,7 +7,22 @@ def transcribe_audio(audio_file_path):
     """
     Transcribes audio using the Faster-Whisper 'base' model.
     Optimized for CPU execution with VAD filtering and Word-Level Timestamps.
+
+    Thread count is constrained locally to 4 for ASR (matching Whisper's optimal
+    CPU parallelism on the i5-1235U P-cores).  The constraint is applied only
+    for the duration of this call and restored afterward so that PyAnnote
+    diarization — which runs best at ~10 threads on this chip — is not affected.
     """
+    # --- CPU OPTIMIZATION FOR INTEL i5 (scoped to ASR only) ---
+    # Whisper runs fastest with 4 threads on P-cores; more threads add contention.
+    # We restore the previous value after transcription so PyAnnote is unaffected.
+    _prev_threads = torch.get_num_threads()
+    torch.set_num_threads(4)
+    # Set environment hints for BLAS/MKL libraries used by Faster-Whisper.
+    # These env vars are read at library init, so setting them here is advisory
+    # for any sub-process, but the torch thread control is the effective guard.
+    os.environ.setdefault("OMP_NUM_THREADS", "4")
+    os.environ.setdefault("MKL_NUM_THREADS", "4")
     model_size = "base"
     
     print("Loading Faster-Whisper model...")
@@ -52,6 +59,9 @@ def transcribe_audio(audio_file_path):
         full_transcript += segment.text + " "
         
     print("Transcription complete.")
+    # Restore previous PyTorch thread count so downstream stages (e.g. PyAnnote)
+    # can run at their own optimal thread count.
+    torch.set_num_threads(_prev_threads)
     return full_transcript.strip(), segments_list, info.language
 
 # --- Simple Local Test ---

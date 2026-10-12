@@ -1,14 +1,33 @@
-myREADme.md
+
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
 __pycache__/
 *.py[cod]
-*$py.class
-venv/
-.venv/
-env/
-*.mp3
-*.m4a
-*.wav
-temp_audio.*
-models/
-.cache/
+.pytest_cache/
+
+# Secrets
 .env
+.env.*
+!.env.example
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Model and temporary caches
+.cache/
+huggingface_cache/
+*.tmp/
+
+# Build and distribution files
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log

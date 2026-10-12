@@ -89,14 +89,21 @@ class Claim:
     A factual claim, assertion, or opinion extracted from the meeting.
 
     Attributes:
-        id:       Unique string identifier for this claim.
-        text:     The claim statement.
-        evidence: List of Evidence objects supporting this claim.
-                  Must contain at least one entry.
+        id:                  Unique string identifier for this claim.
+        text:                The claim statement.
+        evidence:            List of Evidence objects supporting this claim.
+        support_score:       Evidence support score (lexical overlap grounding) in [0.0, 1.0].
+        verification_status: Verification verdict ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED").
+        confidence:          Optional model extraction confidence in [0.0, 1.0].
+        partial_evidence:    List of Evidence objects with partial textual support.
     """
     id: str
     text: str
     evidence: List[Evidence] = field(default_factory=list)
+    support_score: float = 0.0
+    verification_status: str = "UNSUPPORTED"
+    confidence: Optional[float] = None
+    partial_evidence: List[Evidence] = field(default_factory=list)
 
     def validate(self) -> None:
         """Validates the claim and its evidence chain."""
@@ -108,6 +115,12 @@ class Claim:
             raise ValueError(f"Claim '{self.id}' must have at least one Evidence entry.")
         for ev in self.evidence:
             ev.validate()
+        for ev in self.partial_evidence:
+            ev.validate()
+        if not (0.0 <= self.support_score <= 1.0):
+            raise ValueError(f"Claim.support_score must be in [0.0, 1.0], got {self.support_score}")
+        if self.verification_status not in ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED"):
+            raise ValueError(f"Claim.verification_status must be SUPPORTED, PARTIALLY_SUPPORTED, or UNSUPPORTED, got {self.verification_status}")
 
 
 @dataclass
@@ -116,14 +129,23 @@ class Decision:
     A decision made during the meeting.
 
     Attributes:
-        id:       Unique string identifier for this decision.
-        text:     Description of the decision.
-        evidence: List of Evidence objects supporting this decision.
-                  Must contain at least one entry.
+        id:                  Unique string identifier for this decision.
+        text:                Description of the decision.
+        evidence:            List of Evidence objects supporting this decision.
+        status:              Decision classification ("confirmed" or "proposed").
+        support_score:       Evidence support score (lexical overlap grounding) in [0.0, 1.0].
+        verification_status: Verification verdict ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED").
+        confidence:          Optional model extraction confidence in [0.0, 1.0].
+        partial_evidence:    List of Evidence objects with partial textual support.
     """
     id: str
     text: str
     evidence: List[Evidence] = field(default_factory=list)
+    status: str = "confirmed"
+    support_score: float = 0.0
+    verification_status: str = "UNSUPPORTED"
+    confidence: Optional[float] = None
+    partial_evidence: List[Evidence] = field(default_factory=list)
 
     def validate(self) -> None:
         """Validates the decision and its evidence chain."""
@@ -135,6 +157,12 @@ class Decision:
             raise ValueError(f"Decision '{self.id}' must have at least one Evidence entry.")
         for ev in self.evidence:
             ev.validate()
+        for ev in self.partial_evidence:
+            ev.validate()
+        if not (0.0 <= self.support_score <= 1.0):
+            raise ValueError(f"Decision.support_score must be in [0.0, 1.0], got {self.support_score}")
+        if self.verification_status not in ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED"):
+            raise ValueError(f"Decision.verification_status must be SUPPORTED, PARTIALLY_SUPPORTED, or UNSUPPORTED, got {self.verification_status}")
 
 
 @dataclass
@@ -143,20 +171,29 @@ class ActionItem:
     A task or action item assigned during the meeting.
 
     Attributes:
-        id:       Unique string identifier for this action item.
-        task:     Description of the task.
-        owner:    Person responsible (speaker label or name). May be None
-                  if the transcript does not establish ownership.
-        deadline: Deadline or timeframe mentioned. May be None if the
-                  transcript does not establish a deadline.
-        evidence: List of Evidence objects supporting this action item.
-                  Must contain at least one entry.
+        id:                  Unique string identifier for this action item.
+        task:                Description of the task.
+        owner:               Person responsible (speaker label or name). May be None
+                             if the transcript does not establish ownership.
+        deadline:            Deadline or timeframe mentioned. May be None if the
+                             transcript does not establish a deadline.
+        evidence:            List of Evidence objects supporting this action item.
+        commitment_status:   Commitment classification ("committed", "requested", "proposed").
+        support_score:       Evidence support score (lexical overlap grounding) in [0.0, 1.0].
+        verification_status: Verification verdict ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED").
+        confidence:          Optional model extraction confidence in [0.0, 1.0].
+        partial_evidence:    List of Evidence objects with partial textual support.
     """
     id: str
     task: str
     owner: Optional[str] = None
     deadline: Optional[str] = None
     evidence: List[Evidence] = field(default_factory=list)
+    commitment_status: str = "committed"
+    support_score: float = 0.0
+    verification_status: str = "UNSUPPORTED"
+    confidence: Optional[float] = None
+    partial_evidence: List[Evidence] = field(default_factory=list)
 
     def validate(self) -> None:
         """Validates the action item and its evidence chain."""
@@ -168,6 +205,12 @@ class ActionItem:
             raise ValueError(f"ActionItem '{self.id}' must have at least one Evidence entry.")
         for ev in self.evidence:
             ev.validate()
+        for ev in self.partial_evidence:
+            ev.validate()
+        if not (0.0 <= self.support_score <= 1.0):
+            raise ValueError(f"ActionItem.support_score must be in [0.0, 1.0], got {self.support_score}")
+        if self.verification_status not in ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED"):
+            raise ValueError(f"ActionItem.verification_status must be SUPPORTED, PARTIALLY_SUPPORTED, or UNSUPPORTED, got {self.verification_status}")
 
 
 @dataclass
@@ -176,14 +219,21 @@ class Topic:
     A topic or theme discussed during the meeting.
 
     Attributes:
-        id:       Unique string identifier for this topic.
-        name:     Name or short description of the topic.
-        evidence: List of Evidence objects where this topic is discussed.
-                  Must contain at least one entry.
+        id:                  Unique string identifier for this topic.
+        name:                Name or short description of the topic.
+        evidence:            List of Evidence objects where this topic is discussed.
+        support_score:       Evidence support score (lexical overlap grounding) in [0.0, 1.0].
+        verification_status: Verification verdict ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED").
+        confidence:          Optional model extraction confidence in [0.0, 1.0].
+        partial_evidence:    List of Evidence objects with partial textual support.
     """
     id: str
     name: str
     evidence: List[Evidence] = field(default_factory=list)
+    support_score: float = 0.0
+    verification_status: str = "UNSUPPORTED"
+    confidence: Optional[float] = None
+    partial_evidence: List[Evidence] = field(default_factory=list)
 
     def validate(self) -> None:
         """Validates the topic and its evidence chain."""
@@ -195,6 +245,12 @@ class Topic:
             raise ValueError(f"Topic '{self.id}' must have at least one Evidence entry.")
         for ev in self.evidence:
             ev.validate()
+        for ev in self.partial_evidence:
+            ev.validate()
+        if not (0.0 <= self.support_score <= 1.0):
+            raise ValueError(f"Topic.support_score must be in [0.0, 1.0], got {self.support_score}")
+        if self.verification_status not in ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED"):
+            raise ValueError(f"Topic.verification_status must be SUPPORTED, PARTIALLY_SUPPORTED, or UNSUPPORTED, got {self.verification_status}")
 
 
 @dataclass
@@ -203,15 +259,21 @@ class Contradiction:
     A contradiction or conflicting statement detected in the meeting.
 
     Attributes:
-        id:          Unique string identifier for this contradiction.
-        description: Description of the contradiction.
-        evidence:    List of Evidence objects showing the conflicting
-                     statements. Should contain at least two entries
-                     (the conflicting sides), but must have at least one.
+        id:                  Unique string identifier for this contradiction.
+        description:         Description of the contradiction.
+        evidence:            List of Evidence objects showing the conflicting statements.
+        support_score:       Evidence support score (lexical overlap grounding) in [0.0, 1.0].
+        verification_status: Verification verdict ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED").
+        confidence:          Optional model extraction confidence in [0.0, 1.0].
+        partial_evidence:    List of Evidence objects with partial textual support.
     """
     id: str
     description: str
     evidence: List[Evidence] = field(default_factory=list)
+    support_score: float = 0.0
+    verification_status: str = "UNSUPPORTED"
+    confidence: Optional[float] = None
+    partial_evidence: List[Evidence] = field(default_factory=list)
 
     def validate(self) -> None:
         """Validates the contradiction and its evidence chain."""
@@ -230,6 +292,12 @@ class Contradiction:
             )
         for ev in self.evidence:
             ev.validate()
+        for ev in self.partial_evidence:
+            ev.validate()
+        if not (0.0 <= self.support_score <= 1.0):
+            raise ValueError(f"Contradiction.support_score must be in [0.0, 1.0], got {self.support_score}")
+        if self.verification_status not in ("SUPPORTED", "PARTIALLY_SUPPORTED", "UNSUPPORTED"):
+            raise ValueError(f"Contradiction.verification_status must be SUPPORTED, PARTIALLY_SUPPORTED, or UNSUPPORTED, got {self.verification_status}")
 
 
 # ---------------------------------------------------------------------------

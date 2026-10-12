@@ -1,0 +1,210 @@
+{
+  "target_audio": "Business English Conversations ESL Business Meeting Conversation.mp3",
+  "benchmark_duration_sec": 45.0,
+  "configurations": [
+    {
+      "config_name": "baseline_sd31_10threads",
+      "model_name": "pyannote/speaker-diarization-3.1",
+      "threads": 10,
+      "batch_size": 32,
+      "audio_duration_sec": 45.0,
+      "model_load_sec": 3.59,
+      "conversion_sec": 0.07,
+      "inference_sec": 32.38,
+      "total_time_sec": 36.04,
+      "rtf": 0.7196,
+      "num_speakers": 2,
+      "unique_speakers": [
+        "SPEAKER_00",
+        "SPEAKER_01"
+      ],
+      "speaker_durations_sec": {
+        "SPEAKER_01": 4.18,
+        "SPEAKER_00": 18.52
+      },
+      "sample_intervals": [
+        {
+          "speaker": "SPEAKER_01",
+          "start": 7.41,
+          "end": 8.76
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 8.76,
+          "end": 8.79
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "start": 9.99,
+          "end": 10.0
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 10.0,
+          "end": 12.48
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 13.62,
+          "end": 16.03
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 16.82,
+          "end": 18.81
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 19.99,
+          "end": 20.65
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 21.75,
+          "end": 24.21
+        }
+      ]
+    },
+    {
+      "config_name": "optimized_sd31_4threads",
+      "model_name": "pyannote/speaker-diarization-3.1",
+      "threads": 4,
+      "batch_size": 32,
+      "audio_duration_sec": 45.0,
+      "model_load_sec": 1.64,
+      "conversion_sec": 0.06,
+      "inference_sec": 37.66,
+      "total_time_sec": 39.37,
+      "rtf": 0.8369,
+      "num_speakers": 2,
+      "unique_speakers": [
+        "SPEAKER_00",
+        "SPEAKER_01"
+      ],
+      "speaker_durations_sec": {
+        "SPEAKER_01": 4.18,
+        "SPEAKER_00": 18.52
+      },
+      "sample_intervals": [
+        {
+          "speaker": "SPEAKER_01",
+          "start": 7.41,
+          "end": 8.76
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 8.76,
+          "end": 8.79
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "start": 9.99,
+          "end": 10.0
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 10.0,
+          "end": 12.48
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 13.62,
+          "end": 16.03
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 16.82,
+          "end": 18.81
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 19.99,
+          "end": 20.65
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 21.75,
+          "end": 24.21
+        }
+      ]
+    },
+    {
+      "config_name": "alternative_community1_4threads",
+      "model_name": "pyannote/speaker-diarization-community-1",
+      "threads": 4,
+      "batch_size": 32,
+      "audio_duration_sec": 45.0,
+      "model_load_sec": 2.04,
+      "conversion_sec": 0.09,
+      "inference_sec": 42.01,
+      "total_time_sec": 44.14,
+      "rtf": 0.9336,
+      "num_speakers": 1,
+      "unique_speakers": [
+        "SPEAKER_00"
+      ],
+      "speaker_durations_sec": {
+        "SPEAKER_00": 22.7
+      },
+      "sample_intervals": [
+        {
+          "speaker": "SPEAKER_00",
+          "start": 7.41,
+          "end": 8.79
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 9.99,
+          "end": 12.48
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 13.62,
+          "end": 16.03
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 16.82,
+          "end": 18.81
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 19.99,
+          "end": 20.65
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 21.75,
+          "end": 24.21
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 25.85,
+          "end": 27.71
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "start": 28.84,
+          "end": 29.8
+        }
+      ]
+    }
+  ],
+  "comparisons": {
+    "baseline_sd31_10threads": {
+      "inference_speedup_vs_baseline": "1.0x",
+      "inference_reduction_percent": "0.0%",
+      "num_speakers": 2
+    },
+    "optimized_sd31_4threads": {
+      "inference_speedup_vs_baseline": "0.86x",
+      "inference_reduction_percent": "-16.3%",
+      "num_speakers": 2
+    },
+    "alternative_community1_4threads": {
+      "inference_speedup_vs_baseline": "0.77x",
+      "inference_reduction_percent": "-29.7%",
+      "num_speakers": 1
+    }
+  }
+}
